@@ -12,7 +12,7 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 ADMIN_CREDENTIALS = {
     "username": "admin",
-    "password": "adminyigitsos123sosyigitadmin"  # Burayı daha güçlü bir şey yap
+    "password": "1234512341624962378621369468234950347682634852134"  # Burayı daha güçlü bir şey yap
 }
 
 posts = []
