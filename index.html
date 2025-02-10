@@ -6,38 +6,49 @@
     <title>Upload Post with Overlay Text</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; }
-        .post { border: 1px solid #ddd; padding: 10px; margin: 10px; }
+        .container { max-width: 600px; margin: auto; }
+        .search-box { position: absolute; top: 10px; right: 10px; }
+        .post { border: 1px solid #ddd; padding: 10px; margin: 10px; text-align: left; }
         img, video { max-width: 100%; height: auto; }
     </style>
 </head>
 <body>
-    <h1>Upload a Post</h1>
+    <div class="search-box">
+        <input type="text" id="search" placeholder="Search..." oninput="searchPosts()">
+    </div>
 
-    <form id="uploadForm" enctype="multipart/form-data">
-        <input type="text" id="username" placeholder="Your Username" required><br>
-        <input type="file" id="file" accept="image/*,video/*" required><br>
-        <input type="text" id="caption" placeholder="Caption"><br>
-        <input type="text" id="overlay_text" placeholder="Overlay Text (for images only)"><br>
-        <button type="submit">Upload</button>
-    </form>
+    <div class="container">
+        <h1>Upload a Post</h1>
 
-    <h2>Posts</h2>
-    <div id="posts"></div>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="text" id="username" placeholder="Your Username" required><br>
+            <input type="file" id="file" accept="image/*,video/*" required><br>
+            <input type="text" id="caption" placeholder="Caption"><br>
+            <input type="text" id="overlay_text" placeholder="Overlay Text (for images only)"><br>
+            <button type="submit">Upload</button>
+        </form>
+
+        <h2>Posts</h2>
+        <div id="posts"></div>
+    </div>
 
     <script>
-        function loadPosts() {
-            fetch('http://127.0.0.1:5000/posts')
+        function loadPosts(search = "") {
+            let url = "http://127.0.0.1:5000/posts";
+            if (search) url += `?search=${search}`;
+
+            fetch(url)
             .then(response => response.json())
             .then(posts => {
-                let postsDiv = document.getElementById('posts');
+                let postsDiv = document.getElementById("posts");
                 postsDiv.innerHTML = "";
                 posts.forEach(post => {
-                    let postElement = document.createElement('div');
-                    postElement.classList.add('post');
+                    let postElement = document.createElement("div");
+                    postElement.classList.add("post");
                     postElement.innerHTML = `
                         <p><strong>${post.username}</strong></p>
                         <p>${post.caption}</p>
-                        ${post.url.endsWith('.mp4') ? 
+                        ${post.url.endsWith(".mp4") ? 
                             `<video controls><source src="${post.url}" type="video/mp4"></video>` : 
                             `<img src="${post.url}" alt="Uploaded Image">`}
                         <h4>Comments</h4>
@@ -49,10 +60,9 @@
 
                     postsDiv.appendChild(postElement);
 
-                    // Yorumları yükle
                     let commentsDiv = document.getElementById(`comments-${post.url}`);
                     post.comments.forEach(comment => {
-                        let commentElement = document.createElement('p');
+                        let commentElement = document.createElement("p");
                         commentElement.innerHTML = `<strong>${comment.username}:</strong> ${comment.comment}`;
                         commentsDiv.appendChild(commentElement);
                     });
@@ -60,27 +70,27 @@
             });
         }
 
-        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+        document.getElementById("uploadForm").addEventListener("submit", function(event) {
             event.preventDefault();
-            let fileInput = document.getElementById('file');
+            let fileInput = document.getElementById("file");
             let file = fileInput.files[0];
-            let username = document.getElementById('username').value;
-            let caption = document.getElementById('caption').value;
-            let overlayText = document.getElementById('overlay_text').value;
+            let username = document.getElementById("username").value;
+            let caption = document.getElementById("caption").value;
+            let overlayText = document.getElementById("overlay_text").value;
 
             if (!file || !username) {
-                alert('Please provide a username and select a file.');
+                alert("Please provide a username and select a file.");
                 return;
             }
 
             let formData = new FormData();
-            formData.append('file', file);
-            formData.append('username', username);
-            formData.append('caption', caption);
-            formData.append('overlay_text', overlayText);
+            formData.append("file", file);
+            formData.append("username", username);
+            formData.append("caption", caption);
+            formData.append("overlay_text", overlayText);
 
-            fetch('http://127.0.0.1:5000/upload', {
-                method: 'POST',
+            fetch("http://127.0.0.1:5000/upload", {
+                method: "POST",
                 body: formData
             })
             .then(response => response.json())
@@ -88,23 +98,32 @@
                 if (data.post) {
                     loadPosts();
                 } else {
-                    alert('Upload failed.');
+                    alert("Upload failed.");
                 }
-            })
-            .catch(error => console.error('Error:', error));
+            });
         });
 
         function addComment(postUrl) {
             let username = document.getElementById(`comment-username-${postUrl}`).value;
             let commentText = document.getElementById(`comment-text-${postUrl}`).value;
 
-            fetch('http://127.0.0.1:5000/add_comment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            fetch("http://127.0.0.1:5000/add_comment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ username: username, post_url: postUrl, comment: commentText })
             })
             .then(() => loadPosts());
         }
+
+        function searchPosts() {
+            let searchValue = document.getElementById("search").value;
+            loadPosts(searchValue);
+        }
+
+        document.addEventListener("DOMContentLoaded", loadPosts);
+    </script>
+</body>
+</html>
 
         document.addEventListener('DOMContentLoaded', loadPosts);
     </script>
