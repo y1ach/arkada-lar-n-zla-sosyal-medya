@@ -1,74 +1,52 @@
-from flask import Flask, request, jsonify, send_from_directory
-from werkzeug.utils import secure_filename
-import os
+from flask import Flask, request, jsonify
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = "uploads"
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+# Cloudinary Config (API Key ve Cloud Name bilgilerinizi burada kullanın)
+cloudinary.config(
+    cloud_name="ddzz9gofb",
+    api_key="448296236667549",
+    api_secret="JvoUD8z8SA0Zs2zIAAChfg3PSt4"
+)
 
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+posts = []  # Yüklenen postları burada tutacağız.
 
-ADMIN_CREDENTIALS = {
-    "username": "admin",
-    "password": "1234"  # Burayı daha güçlü bir şey yap
-}
+@app.route('/upload', methods=['POST'])
+def upload():
+    file = request.files['file']
+    caption = request.form.get('caption', '')
+    username = request.form.get('username', 'Unknown User')
 
-posts = []
+    if not file:
+        return jsonify({"error": "No file uploaded"}), 400
 
-from flask_cors import CORS
-CORS(app)
+    # Cloudinary'ye dosya yükleme
+    upload_result = cloudinary.uploader.upload(file)
 
-@app.route("/upload", methods=["POST"])
-def upload_post():
-    file = request.files.get("file")
-    username = request.form.get("username")
-    caption = request.form.get("caption", "")
+    # Yüklenen dosyanın URL'si
+    file_url = upload_result['secure_url']
 
-    if not username or not file:
-        return jsonify({"error": "Username and file are required"}), 400
-
-    filename = secure_filename(file.filename)
-    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-    file.save(file_path)
-
-    file_url = f"http://127.0.0.1:5000/uploads/{filename}"
-
-    post_data = {
-        "id": len(posts) + 1,
+    # Yeni postu listeye ekle
+    post = {
         "username": username,
+        "caption": caption,
+        "file_url": file_url
+    }
+    posts.insert(0, post)  # Yeni postu başa ekleyelim (en son eklenen üstte olsun)
+
+    return jsonify({
+        "message": "File uploaded successfully",
         "url": file_url,
         "caption": caption,
-        "comments": []
-    }
+        "username": username
+    })
 
-    posts.insert(0, post_data)
-
-    return jsonify({"message": "Post uploaded", "post": post_data})
-
-@app.route("/delete_post", methods=["POST"])
-def delete_post():
-    data = request.json
-    username = data.get("username")
-    password = data.get("password")
-    post_id = data.get("post_id")
-
-    if username != ADMIN_CREDENTIALS["username"] or password != ADMIN_CREDENTIALS["password"]:
-        return jsonify({"error": "Unauthorized"}), 403
-
-    global posts
-    posts = [post for post in posts if post["id"] != post_id]
-
-    return jsonify({"message": "Post deleted"})
-
-@app.route("/posts", methods=["GET"])
+@app.route('/posts', methods=['GET'])
 def get_posts():
     return jsonify(posts)
 
-@app.route("/uploads/<filename>")
-def uploaded_file(filename):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
