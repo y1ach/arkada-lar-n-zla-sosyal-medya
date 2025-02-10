@@ -3,65 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload & Admin Delete</title>
+    <title>Social Media</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; }
-        .container { max-width: 600px; margin: auto; }
-        .post { border: 1px solid #ddd; padding: 10px; margin: 10px; text-align: left; }
+        .post { border: 1px solid #ddd; padding: 10px; margin: 10px; }
+        .user { font-weight: bold; }
         img, video { max-width: 100%; height: auto; }
+        .comment-section { margin-top: 10px; }
+        input, button { padding: 5px; margin: 5px; }
+        .post-container { display: flex; flex-direction: column; align-items: center; }
     </style>
 </head>
 <body>
+    <h1>Welcome to Social Media</h1>
+    
+    <h2>Upload Post</h2>
+    <input type="text" id="username" placeholder="Your Username" required>
+    <input type="file" id="file" accept="image/*,video/*" required>
+    <input type="text" id="caption" placeholder="Caption">
+    <button onclick="uploadPost()">Upload</button>
 
-    <div class="container">
-        <h1>Upload a Post</h1>
-
-        <form id="uploadForm" enctype="multipart/form-data">
-            <input type="text" id="username" placeholder="Your Username" required><br>
-            <input type="file" id="file" accept="image/*,video/*" required><br>
-            <input type="text" id="caption" placeholder="Caption"><br>
-            <button type="submit">Upload</button>
-        </form>
-
-        <h2>Admin Login</h2>
-        <input type="text" id="adminUsername" placeholder="Admin Username"><br>
-        <input type="password" id="adminPassword" placeholder="Admin Password"><br>
-        <button onclick="adminLogin()">Login</button>
-        <button onclick="adminLogout()">Logout</button>
-
-        <h2>Posts</h2>
-        <div id="posts"></div>
-    </div>
+    <h2>Posts</h2>
+    <div id="posts"></div>
 
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPosts();
+        });
+
+        // Yüklenen postları backend'den al ve sayfaya ekle
         function loadPosts() {
             fetch("http://127.0.0.1:5000/posts")
-            .then(response => response.json())
-            .then(posts => {
-                let postsDiv = document.getElementById("posts");
-                postsDiv.innerHTML = "";
-                posts.forEach(post => {
-                    let postElement = document.createElement("div");
-                    postElement.classList.add("post");
-                    postElement.innerHTML = `
-                        <p><strong>${post.username}</strong></p>
-                        <p>${post.caption}</p>
-                        ${post.url.endsWith(".mp4") ? 
-                            `<video controls><source src="${post.url}" type="video/mp4"></video>` : 
-                            `<img src="${post.url}" alt="Uploaded Image">`}
-                        ${isAdminLoggedIn() ? `<button onclick="deletePost(${post.id})">Delete</button>` : ""}
-                    `;
-                    postsDiv.appendChild(postElement);
+                .then(response => response.json())
+                .then(posts => {
+                    const postsDiv = document.getElementById("posts");
+                    postsDiv.innerHTML = ''; // Önceki postları temizle
+
+                    posts.forEach(post => {
+                        const postDiv = document.createElement("div");
+                        postDiv.classList.add("post");
+                        postDiv.innerHTML = `
+                            <p class="user">${post.username}</p>
+                            <p>${post.caption}</p>
+                            <img src="${post.file_url}" alt="Uploaded Image">
+                            <div class="comment-section">
+                                <input type="text" placeholder="Add a comment" id="comment-${post.file_url}">
+                                <button onclick="addComment('${post.file_url}')">Comment</button>
+                                <div id="comments-${post.file_url}"></div>
+                            </div>
+                        `;
+                        postsDiv.appendChild(postDiv);
+                    });
                 });
-            });
         }
 
-        document.getElementById("uploadForm").addEventListener("submit", function(event) {
-            event.preventDefault();
-            let fileInput = document.getElementById("file");
-            let file = fileInput.files[0];
+        // Post yükle
+        function uploadPost() {
             let username = document.getElementById("username").value;
             let caption = document.getElementById("caption").value;
+            let file = document.getElementById("file").files[0];
 
             if (!file || !username) {
                 alert("Please provide a username and select a file.");
@@ -70,67 +70,38 @@
 
             let formData = new FormData();
             formData.append("file", file);
-            formData.append("username", username);
             formData.append("caption", caption);
+            formData.append("username", username);
 
             fetch("http://127.0.0.1:5000/upload", {
                 method: "POST",
                 body: formData
             })
             .then(response => response.json())
-            .then(() => loadPosts());
-        });
-
-        function deletePost(postId) {
-            let adminUsername = localStorage.getItem("adminUsername");
-            let adminPassword = localStorage.getItem("adminPassword");
-
-            if (!adminUsername || !adminPassword) {
-                alert("Unauthorized!");
-                return;
-            }
-
-            fetch("http://127.0.0.1:5000/delete_post", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username: adminUsername, password: adminPassword, post_id: postId })
-            })
-            .then(response => response.json())
             .then(data => {
-                if (data.message) {
+                if (data.url) {
+                    alert("Post uploaded!");
                     loadPosts();
                 } else {
-                    alert("Delete failed!");
+                    alert("Upload failed.");
                 }
             });
         }
 
-        function adminLogin() {
-            let username = document.getElementById("adminUsername").value;
-            let password = document.getElementById("adminPassword").value;
+        // Yorum ekle
+        function addComment(postUrl) {
+            let commentInput = document.getElementById(`comment-${postUrl}`);
+            let comment = commentInput.value;
+            if (!comment) return;
 
-            if (username === "admin" && password === "1234") {
-                localStorage.setItem("adminUsername", username);
-                localStorage.setItem("adminPassword", password);
-                alert("Admin login successful!");
-                loadPosts();
-            } else {
-                alert("Invalid credentials!");
-            }
+            let commentsDiv = document.getElementById(`comments-${postUrl}`);
+            let commentDiv = document.createElement("div");
+            commentDiv.textContent = comment;
+            commentsDiv.appendChild(commentDiv);
+
+            // Yorumun sıfırlanması
+            commentInput.value = '';
         }
-
-        function adminLogout() {
-            localStorage.removeItem("adminUsername");
-            localStorage.removeItem("adminPassword");
-            alert("Logged out!");
-            loadPosts();
-        }
-
-        function isAdminLoggedIn() {
-            return localStorage.getItem("adminUsername") === "admin";
-        }
-
-        document.addEventListener("DOMContentLoaded", loadPosts);
     </script>
 </body>
 </html>
