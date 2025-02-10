@@ -3,19 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Post with Overlay Text</title>
+    <title>Upload & Admin Delete</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; }
         .container { max-width: 600px; margin: auto; }
-        .search-box { position: absolute; top: 10px; right: 10px; }
         .post { border: 1px solid #ddd; padding: 10px; margin: 10px; text-align: left; }
         img, video { max-width: 100%; height: auto; }
     </style>
 </head>
 <body>
-    <div class="search-box">
-        <input type="text" id="search" placeholder="Search..." oninput="searchPosts()">
-    </div>
 
     <div class="container">
         <h1>Upload a Post</h1>
@@ -24,20 +20,22 @@
             <input type="text" id="username" placeholder="Your Username" required><br>
             <input type="file" id="file" accept="image/*,video/*" required><br>
             <input type="text" id="caption" placeholder="Caption"><br>
-            <input type="text" id="overlay_text" placeholder="Overlay Text (for images only)"><br>
             <button type="submit">Upload</button>
         </form>
+
+        <h2>Admin Login</h2>
+        <input type="text" id="adminUsername" placeholder="Admin Username"><br>
+        <input type="password" id="adminPassword" placeholder="Admin Password"><br>
+        <button onclick="adminLogin()">Login</button>
+        <button onclick="adminLogout()">Logout</button>
 
         <h2>Posts</h2>
         <div id="posts"></div>
     </div>
 
     <script>
-        function loadPosts(search = "") {
-            let url = "http://127.0.0.1:5000/posts";
-            if (search) url += `?search=${search}`;
-
-            fetch(url)
+        function loadPosts() {
+            fetch("http://127.0.0.1:5000/posts")
             .then(response => response.json())
             .then(posts => {
                 let postsDiv = document.getElementById("posts");
@@ -51,21 +49,9 @@
                         ${post.url.endsWith(".mp4") ? 
                             `<video controls><source src="${post.url}" type="video/mp4"></video>` : 
                             `<img src="${post.url}" alt="Uploaded Image">`}
-                        <h4>Comments</h4>
-                        <div class="comments" id="comments-${post.url}"></div>
-                        <input type="text" placeholder="Your Username" id="comment-username-${post.url}">
-                        <input type="text" placeholder="Add a comment..." id="comment-text-${post.url}">
-                        <button onclick="addComment('${post.url}')">Comment</button>
+                        ${isAdminLoggedIn() ? `<button onclick="deletePost(${post.id})">Delete</button>` : ""}
                     `;
-
                     postsDiv.appendChild(postElement);
-
-                    let commentsDiv = document.getElementById(`comments-${post.url}`);
-                    post.comments.forEach(comment => {
-                        let commentElement = document.createElement("p");
-                        commentElement.innerHTML = `<strong>${comment.username}:</strong> ${comment.comment}`;
-                        commentsDiv.appendChild(commentElement);
-                    });
                 });
             });
         }
@@ -76,7 +62,6 @@
             let file = fileInput.files[0];
             let username = document.getElementById("username").value;
             let caption = document.getElementById("caption").value;
-            let overlayText = document.getElementById("overlay_text").value;
 
             if (!file || !username) {
                 alert("Please provide a username and select a file.");
@@ -87,45 +72,65 @@
             formData.append("file", file);
             formData.append("username", username);
             formData.append("caption", caption);
-            formData.append("overlay_text", overlayText);
 
             fetch("http://127.0.0.1:5000/upload", {
                 method: "POST",
                 body: formData
             })
             .then(response => response.json())
-            .then(data => {
-                if (data.post) {
-                    loadPosts();
-                } else {
-                    alert("Upload failed.");
-                }
-            });
+            .then(() => loadPosts());
         });
 
-        function addComment(postUrl) {
-            let username = document.getElementById(`comment-username-${postUrl}`).value;
-            let commentText = document.getElementById(`comment-text-${postUrl}`).value;
+        function deletePost(postId) {
+            let adminUsername = localStorage.getItem("adminUsername");
+            let adminPassword = localStorage.getItem("adminPassword");
 
-            fetch("http://127.0.0.1:5000/add_comment", {
+            if (!adminUsername || !adminPassword) {
+                alert("Unauthorized!");
+                return;
+            }
+
+            fetch("http://127.0.0.1:5000/delete_post", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username: username, post_url: postUrl, comment: commentText })
+                body: JSON.stringify({ username: adminUsername, password: adminPassword, post_id: postId })
             })
-            .then(() => loadPosts());
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    loadPosts();
+                } else {
+                    alert("Delete failed!");
+                }
+            });
         }
 
-        function searchPosts() {
-            let searchValue = document.getElementById("search").value;
-            loadPosts(searchValue);
+        function adminLogin() {
+            let username = document.getElementById("adminUsername").value;
+            let password = document.getElementById("adminPassword").value;
+
+            if (username === "admin" && password === "1234") {
+                localStorage.setItem("adminUsername", username);
+                localStorage.setItem("adminPassword", password);
+                alert("Admin login successful!");
+                loadPosts();
+            } else {
+                alert("Invalid credentials!");
+            }
+        }
+
+        function adminLogout() {
+            localStorage.removeItem("adminUsername");
+            localStorage.removeItem("adminPassword");
+            alert("Logged out!");
+            loadPosts();
+        }
+
+        function isAdminLoggedIn() {
+            return localStorage.getItem("adminUsername") === "admin";
         }
 
         document.addEventListener("DOMContentLoaded", loadPosts);
-    </script>
-</body>
-</html>
-
-        document.addEventListener('DOMContentLoaded', loadPosts);
     </script>
 </body>
 </html>
